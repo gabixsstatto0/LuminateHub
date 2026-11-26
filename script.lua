@@ -14,27 +14,36 @@ local Workspace         = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService   = game:GetService("TextChatService")
 local Camera            = Workspace.CurrentCamera
+local CoreGui           = game:GetService("CoreGui")
 
 -- ==========================================
 -- 2. ESTADO GLOBAL DOS BOTÕES FLUTUANTES
 -- ==========================================
+-- Usado pelo drag handler do MainFrame e pelo setupFloatingButtons().
+-- Precisa ficar no escopo principal porque o drag handler precisa consultar.
 local floatingState = {
-    locked  = false,
-    hidden  = false,
+    locked  = false,  -- Se TRUE, o MainFrame não pode ser arrastado.
+    hidden  = false,  -- Se TRUE, GUI e botões flutuantes estão escondidos.
 }
 
 -- ==========================================
 -- 3. LIMPEZA
 -- ==========================================
-if PlayerGui:FindFirstChild("LuminateGUI")     then PlayerGui.LuminateGUI:Destroy()     end
-if PlayerGui:FindFirstChild("LuminateFOV")     then PlayerGui.LuminateFOV:Destroy()     end
-if PlayerGui:FindFirstChild("BoxESPGui")       then PlayerGui.BoxESPGui:Destroy()       end
-if PlayerGui:FindFirstChild("TracersGui")      then PlayerGui.TracersGui:Destroy()      end
-if PlayerGui:FindFirstChild("SkeletonESP")     then PlayerGui.SkeletonESP:Destroy()     end
-if PlayerGui:FindFirstChild("LuminateNotifs")  then PlayerGui.LuminateNotifs:Destroy()  end
-if PlayerGui:FindFirstChild("LuminateFloating") then PlayerGui.LuminateFloating:Destroy() end
-if PlayerGui:FindFirstChild("LuminateStaffGUI") then PlayerGui.LuminateStaffGUI:Destroy() end
+local function cleanupGui(name)
+    if CoreGui:FindFirstChild(name) then CoreGui[name]:Destroy() end
+    if PlayerGui:FindFirstChild(name) then PlayerGui[name]:Destroy() end
+end
+cleanupGui("LuminateGUI")
+cleanupGui("LuminateFOV")
+cleanupGui("BoxESPGui")
+cleanupGui("TracersGui")
+cleanupGui("SkeletonESP")
+cleanupGui("LuminateNotifs")
+cleanupGui("LuminateFloating")
+cleanupGui("LuminatePlayerList")
+cleanupGui("LuminateStaffGUI")
 
+-- Limpa a pasta RuntimeData (Highlights) do CoreGui/gethui.
 local function cleanupChamsFolder()
     local function tryDestroy(parent)
         if parent then
@@ -64,7 +73,7 @@ NotifGui.Name = "LuminateNotifs"
 NotifGui.ResetOnSpawn = false
 NotifGui.IgnoreGuiInset = true
 NotifGui.DisplayOrder = 100
-NotifGui.Parent = PlayerGui
+NotifGui.Parent = CoreGui
 
 local NotifContainer = Instance.new("Frame")
 NotifContainer.Name = "NotifContainer"
@@ -188,7 +197,8 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LuminateGUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
+ScreenGui.DisplayOrder = 10
+ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
@@ -210,8 +220,8 @@ local FovGui = Instance.new("ScreenGui")
 FovGui.Name = "LuminateFOV"
 FovGui.ResetOnSpawn = false
 FovGui.IgnoreGuiInset = true
-FovGui.DisplayOrder = 10
-FovGui.Parent = PlayerGui
+FovGui.DisplayOrder = 3
+FovGui.Parent = CoreGui
 
 local FovCircle = Instance.new("Frame")
 FovCircle.Name = "FovCircle"
@@ -276,13 +286,14 @@ local checkTweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDire
 local BOX_SIZE = 12
 local TEXT_X = 22
 
-local function createTab(name, text, imageId, posY, iconSize, offsetX, offsetY, iconTransparency, tabOffsetX, tabOffsetY)
+local function createTab(name, text, imageId, posY, iconSize, offsetX, offsetY, iconTransparency, tabOffsetX, tabOffsetY, textOffsetY)
     iconSize         = iconSize or 16
     offsetX          = offsetX or 0
     offsetY          = offsetY or 0
     iconTransparency = iconTransparency or 0
     tabOffsetX       = tabOffsetX or 0
     tabOffsetY       = tabOffsetY or 0
+    textOffsetY      = textOffsetY or 0
 
     local iconPosX = offsetX
     local iconPosY = math.floor((24 - iconSize) / 2) + offsetY
@@ -338,8 +349,9 @@ local function createTab(name, text, imageId, posY, iconSize, offsetX, offsetY, 
 
     local TabText = Instance.new("TextLabel")
     TabText.Name = "TabText"
-    TabText.Size = UDim2.new(1, -(TEXT_X + 3), 1, 0)
-    TabText.Position = UDim2.new(0, TEXT_X - tabOffsetX, 0, 0)
+    TabText.Size = UDim2.new(0, 50, 0, 24)
+    TabText.Position = UDim2.new(0, iconPosX + iconSize + 4, 0, textOffsetY)
+    TabText.AnchorPoint = Vector2.new(0, 0)
     TabText.BackgroundTransparency = 1
     TabText.Text = text
     TabText.TextColor3 = Color3.fromRGB(160, 160, 160)
@@ -355,8 +367,8 @@ end
 
 local TabRage, TabRageFill           = createTab("TabRage", "rage", "rbxassetid://109884350811016", 95, 16, 0, 0, 0.35)
 local TabFarms, TabFarmsFill         = createTab("TabFarms", "farms", "rbxassetid://72483107729531", 120)
-local TabVehicles, TabVehiclesFill   = createTab("TabVehicles", "vehicles", "rbxassetid://103447319422273", 145, 20, -2, -2)
-local TabTeleport, TabTeleportFill   = createTab("TabTeleport", "teleport", "rbxassetid://96654326365569", 170, 22, -1, -1, 0.35, -1, -1)
+local TabVehicles, TabVehiclesFill   = createTab("TabVehicles", "vehicles", "rbxassetid://103447319422273", 145, 20, -2, -2, 0, 0, 0, -2)
+local TabTeleport, TabTeleportFill   = createTab("TabTeleport", "teleport", "rbxassetid://96654326365569", 170, 22, -1, -1, 0.35, -1, -1, -1)
 local TabOthers, TabOthersFill       = createTab("TabOthers", "others", "rbxassetid://119762543918627", 195, 22, -1, -1, 0.35, -1, -1)
 
 -- ==========================================
@@ -387,25 +399,24 @@ local function createCheckbox(parent, text, layoutOrder, onChanged)
     CheckMark.Size = UDim2.new(0, 0, 0, 0)
     CheckMark.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
     CheckMark.BackgroundTransparency = 1
-    CheckMark.ZIndex = 2
     CheckMark.Parent = Box
 
     local CheckMarkCorner = Instance.new("UICorner")
     CheckMarkCorner.CornerRadius = UDim.new(0, 3)
     CheckMarkCorner.Parent = CheckMark
 
-    -- Imagem animada que cresce ao ativar o checkbox
-    local CheckImage = Instance.new("ImageLabel")
-    CheckImage.Name = "CheckImage"
-    CheckImage.AnchorPoint = Vector2.new(0.5, 0.5)
-    CheckImage.Position = UDim2.new(0.5, 0, 0.5, 0)
-    CheckImage.Size = UDim2.new(0, 0, 0, 0)
-    CheckImage.BackgroundTransparency = 1
-    CheckImage.Image = "rbxassetid://129243514173890"
-    CheckImage.ScaleType = Enum.ScaleType.Fit
-    CheckImage.ImageTransparency = 1
-    CheckImage.ZIndex = 3
-    CheckImage.Parent = Box
+    -- Ícone que cresce do centro quando ativa
+    local CheckIcon = Instance.new("ImageLabel")
+    CheckIcon.Name = "CheckIcon"
+    CheckIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+    CheckIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+    CheckIcon.Size = UDim2.new(0, 0, 0, 0)
+    CheckIcon.BackgroundTransparency = 1
+    CheckIcon.Image = "rbxassetid://129243514173890"
+    CheckIcon.ScaleType = Enum.ScaleType.Fit
+    CheckIcon.ImageTransparency = 1
+    CheckIcon.ZIndex = 2
+    CheckIcon.Parent = Box
 
     local Text = Instance.new("TextLabel")
     Text.Size = UDim2.new(1, -18, 1, 0)
@@ -418,18 +429,18 @@ local function createCheckbox(parent, text, layoutOrder, onChanged)
     Text.TextXAlignment = Enum.TextXAlignment.Left
     Text.Parent = Check
 
-    local imgTweenOn  = TweenInfo.new(0.45, Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
-    local imgTweenOff = TweenInfo.new(0.25, Enum.EasingStyle.Quad,  Enum.EasingDirection.In)
-
+    local iconTweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     local toggle = false
     Check.MouseButton1Click:Connect(function()
         toggle = not toggle
         if toggle then
-            TweenService:Create(CheckMark,  checkTweenInfo, {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 0}):Play()
-            TweenService:Create(CheckImage, imgTweenOn,     {Size = UDim2.new(0, 10, 0, 10), ImageTransparency = 0}):Play()
+            TweenService:Create(CheckMark, checkTweenInfo, {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 0}):Play()
+            CheckIcon.Size = UDim2.new(0, 0, 0, 0)
+            CheckIcon.ImageTransparency = 0
+            TweenService:Create(CheckIcon, iconTweenInfo, {Size = UDim2.new(0.9, 0, 0.9, 0)}):Play()
         else
-            TweenService:Create(CheckMark,  checkTweenInfo, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}):Play()
-            TweenService:Create(CheckImage, imgTweenOff,    {Size = UDim2.new(0, 0, 0, 0),  ImageTransparency = 1}):Play()
+            TweenService:Create(CheckMark, checkTweenInfo, {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}):Play()
+            TweenService:Create(CheckIcon, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 0, 0), ImageTransparency = 1}):Play()
         end
         notify(text .. (toggle and " ativado" or " desativado"))
         if onChanged then onChanged(toggle) end
@@ -927,9 +938,13 @@ ListLayout.Parent = RageContent
 
 local aimbotEnabled = false
 local hideFov = false
-local ignoreFriends = false
+local legitWalls = false
 local sliderValue = 0
 local aimMode = "None"
+
+-- Amigos locais: UserId → true. Aimbot ignora, ESPs ficam verdes.
+local localFriends = {}
+local FRIEND_COLOR  = Color3.fromRGB(85, 255, 120)
 
 local function updateFovVisual()
     if not aimbotEnabled or hideFov then
@@ -940,24 +955,6 @@ local function updateFovVisual()
         FovCircle.Size = UDim2.new(0, size, 0, size)
     end
 end
-
-local friendsCache = {}
-local function isFriend(player)
-    if friendsCache[player.UserId] ~= nil then
-        return friendsCache[player.UserId]
-    end
-    local ok, result = pcall(function()
-        return LocalPlayer:IsFriendsWith(player.UserId)
-    end)
-    local val = ok and result == true
-    friendsCache[player.UserId] = val
-    return val
-end
-
-Players.PlayerRemoving:Connect(function(p)
-    friendsCache[p.UserId] = nil
-end)
-
 
 local function getTarget()
     local cam = workspace.CurrentCamera
@@ -970,8 +967,22 @@ local function getTarget()
             local head = plr.Character:FindFirstChild("Head")
             local humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
             if head and humanoid and humanoid.Health > 0 then
-                if ignoreFriends and isFriend(plr) then
-                    continue
+                -- Pula amigos locais
+                if localFriends[plr.UserId] then continue end
+                -- Legit walls: só gruda em quem está visível
+                if legitWalls then
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                    local chars = {}
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p.Character then table.insert(chars, p.Character) end
+                    end
+                    if LocalPlayer.Character then table.insert(chars, LocalPlayer.Character) end
+                    rayParams.FilterDescendantsInstances = chars
+                    local origin = cam.CFrame.Position
+                    local direction = head.Position - origin
+                    local result = workspace:Raycast(origin, direction, rayParams)
+                    if result then continue end
                 end
                 local screenPos, onScreen = cam:WorldToViewportPoint(head.Position)
                 if onScreen then
@@ -990,16 +1001,18 @@ end
 RunService.RenderStepped:Connect(function(dt)
     pcall(function()
         if not aimbotEnabled or aimMode == "None" then return end
-        local cam = workspace.CurrentCamera
-        if not cam then return end
         local target = getTarget()
         if not target then return end
         local head = target.Character and target.Character:FindFirstChild("Head")
         if not head then return end
+        local cam = workspace.CurrentCamera
         local targetCF = CFrame.new(cam.CFrame.Position, head.Position)
-        local alpha = aimMode == "Rage"
-            and math.clamp(dt * 25, 0, 1)
-            or  math.clamp(dt * 6,  0, 1)
+        local alpha
+        if aimMode == "Rage" then
+            alpha = math.clamp(dt * 25, 0, 1)
+        else
+            alpha = math.clamp(dt * 6, 0, 1)
+        end
         cam.CFrame = cam.CFrame:Lerp(targetCF, alpha)
     end)
 end)
@@ -1219,8 +1232,183 @@ Opt2.MouseButton1Click:Connect(function()
     task.delay(0.2, function() DropMenu.Visible = false end)
 end)
 
-createCheckbox(RageContent, "Sem grudar amizades", 5, function(on)
-    ignoreFriends = on
+createCheckbox(RageContent, "Legit walls", 5, function(on)
+    legitWalls = on
+end)
+
+-- Forward declaration pra poder referenciar dentro do checkbox
+local playerListGui
+
+createCheckbox(RageContent, "Lista de players", 6, function(on)
+    if on then
+        if not playerListGui or not playerListGui.Parent then
+            -- Cria a GUI da lista de players
+            playerListGui = Instance.new("ScreenGui")
+            playerListGui.Name = "LuminatePlayerList"
+            playerListGui.ResetOnSpawn = false
+            playerListGui.IgnoreGuiInset = true
+            playerListGui.DisplayOrder = 150
+            playerListGui.Parent = CoreGui
+
+            -- Frame principal: centralizado na tela, estilo staff GUI
+            local plFrame = Instance.new("Frame")
+            plFrame.Name = "PlayerListFrame"
+            plFrame.Size = UDim2.new(0, 160, 0, 240)
+            plFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+            plFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+            plFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            plFrame.BorderSizePixel = 0
+            plFrame.ClipsDescendants = true
+            plFrame.Parent = playerListGui
+
+            local plStroke = Instance.new("UIStroke")
+            plStroke.Color = Color3.fromRGB(55, 55, 55)
+            plStroke.Thickness = 1
+            plStroke.Parent = plFrame
+
+            local plCorner = Instance.new("UICorner")
+            plCorner.CornerRadius = UDim.new(0, 8)
+            plCorner.Parent = plFrame
+
+            -- Titulo
+            local plTitle = Instance.new("TextLabel")
+            plTitle.Size = UDim2.new(1, 0, 0, 24)
+            plTitle.BackgroundTransparency = 1
+            plTitle.Text = "Players"
+            plTitle.TextColor3 = Color3.fromRGB(220, 220, 220)
+            plTitle.TextSize = 12
+            plTitle.Font = Enum.Font.GothamBold
+            plTitle.TextXAlignment = Enum.TextXAlignment.Center
+            plTitle.Parent = plFrame
+
+            -- Separador
+            local sep = Instance.new("Frame")
+            sep.Size = UDim2.new(0.85, 0, 0, 1)
+            sep.Position = UDim2.new(0.075, 0, 0, 24)
+            sep.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            sep.BorderSizePixel = 0
+            sep.Parent = plFrame
+
+            -- ScrollingFrame com lista de players
+            local scroll = Instance.new("ScrollingFrame")
+            scroll.Size = UDim2.new(1, 0, 1, -28)
+            scroll.Position = UDim2.new(0, 0, 0, 28)
+            scroll.BackgroundTransparency = 1
+            scroll.BorderSizePixel = 0
+            scroll.ScrollBarThickness = 2
+            scroll.ScrollBarImageColor3 = Color3.fromRGB(90, 90, 90)
+            scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+            scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+            scroll.Parent = plFrame
+
+            local layout = Instance.new("UIListLayout")
+            layout.Padding = UDim.new(0, 2)
+            layout.SortOrder = Enum.SortOrder.LayoutOrder
+            layout.Parent = scroll
+
+            local pad = Instance.new("UIPadding")
+            pad.PaddingTop = UDim.new(0, 4)
+            pad.PaddingLeft = UDim.new(0, 6)
+            pad.PaddingRight = UDim.new(0, 6)
+            pad.Parent = scroll
+
+            -- Drag do playerListGui
+            local plDragging, plDragStart, plStartPos = false, nil, nil
+            plFrame.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    plDragging = true
+                    plDragStart = input.Position
+                    plStartPos = plFrame.Position
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then plDragging = false end
+                    end)
+                end
+            end)
+            plFrame.InputChanged:Connect(function(input)
+                if plDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+                    local delta = input.Position - plDragStart
+                    plFrame.Position = UDim2.new(plStartPos.X.Scale, plStartPos.X.Offset + delta.X, plStartPos.Y.Scale, plStartPos.Y.Offset + delta.Y)
+                end
+            end)
+
+            -- Popula a lista de players
+            local function populateList()
+                for _, child in ipairs(scroll:GetChildren()) do
+                    if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+                end
+                local order = 0
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr == LocalPlayer then continue end
+                    order = order + 1
+                    local row = Instance.new("Frame")
+                    row.Size = UDim2.new(1, 0, 0, 22)
+                    row.BackgroundTransparency = 1
+                    row.LayoutOrder = order
+                    row.Parent = scroll
+
+                    local nameLabel = Instance.new("TextLabel")
+                    nameLabel.Size = UDim2.new(1, -26, 1, 0)
+                    nameLabel.BackgroundTransparency = 1
+                    nameLabel.Text = plr.Name
+                    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+                    nameLabel.TextSize = 10
+                    nameLabel.Font = Enum.Font.Gotham
+                    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                    nameLabel.Parent = row
+
+                    local heartBtn = Instance.new("TextButton")
+                    heartBtn.Size = UDim2.new(0, 20, 0, 20)
+                    heartBtn.Position = UDim2.new(1, -20, 0.5, -10)
+                    heartBtn.BackgroundTransparency = 1
+                    heartBtn.Text = "♡"
+                    heartBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+                    heartBtn.TextSize = 14
+                    heartBtn.Font = Enum.Font.GothamBold
+                    heartBtn.Parent = row
+
+                    -- Atualiza visual do coração conforme estado atual
+                    local function refreshHeart()
+                        if localFriends[plr.UserId] then
+                            heartBtn.Text = "♥"
+                            heartBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+                        else
+                            heartBtn.Text = "♡"
+                            heartBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+                        end
+                    end
+                    refreshHeart()
+
+                    heartBtn.MouseButton1Click:Connect(function()
+                        if localFriends[plr.UserId] then
+                            localFriends[plr.UserId] = nil
+                            notify(plr.Name .. " removido dos amigos")
+                        else
+                            localFriends[plr.UserId] = true
+                            notify(plr.Name .. " setado como amigo")
+                        end
+                        refreshHeart()
+                    end)
+                end
+            end
+
+            populateList()
+
+            -- Re-popula quando players entram/saem
+            Players.PlayerAdded:Connect(function() pcall(function() task.wait(0.5); populateList() end) end)
+            Players.PlayerRemoving:Connect(function(p)
+                pcall(function()
+                    localFriends[p.UserId] = nil
+                    task.wait(0.1); populateList()
+                end)
+            end)
+        else
+            playerListGui.Enabled = true
+        end
+    else
+        if playerListGui then playerListGui.Enabled = false end
+    end
 end)
 
 -- ==========================================
@@ -1458,17 +1646,14 @@ task.spawn(function()
 end)
 
 RunService.RenderStepped:Connect(function()
-    pcall(function()
-        if spectateEnabled and spectateTargetModel and spectateTargetModel.Parent then
-            local seat = spectateTargetModel:FindFirstChildWhichIsA("VehicleSeat")
-            if seat then
-                local cam = workspace.CurrentCamera
-                if not cam then return end
-                cam.CameraType = Enum.CameraType.Custom
-                cam.CameraSubject = seat
-            end
+    if spectateEnabled and spectateTargetModel and spectateTargetModel.Parent then
+        local seat = spectateTargetModel:FindFirstChildWhichIsA("VehicleSeat")
+        if seat then
+            local cam = workspace.CurrentCamera
+            cam.CameraType = Enum.CameraType.Custom
+            cam.CameraSubject = seat
         end
-    end)
+    end
 end)
 
 createCheckbox(VehiclesContent, "Aba vehicles", 1, function(on)
@@ -1665,11 +1850,13 @@ local function setupOthersTab()
     if LocalPlayer.Character then setupAntiRagdoll(LocalPlayer.Character) end
 
     LocalPlayer.CharacterAdded:Connect(function(char)
-        isRagdollLocked = false
-        task.wait(1)
-        if antiRagdollEnabled then
-            setupAntiRagdoll(char)
-        end
+        pcall(function()
+            isRagdollLocked = false
+            task.wait(1)
+            if antiRagdollEnabled then
+                setupAntiRagdoll(char)
+            end
+        end)
     end)
 
     local speedEnabled = false
@@ -1797,6 +1984,7 @@ local function setupOthersTab()
     end)
 
     RunService.Heartbeat:Connect(function()
+        pcall(function()
         if not antiRagdollEnabled or not isRagdollLocked then return end
         local char = LocalPlayer.Character
         if not char then return end
@@ -1834,9 +2022,11 @@ local function setupOthersTab()
                 end
             end
         end
+        end) -- end pcall
     end)
 
     RunService.Heartbeat:Connect(function(dt)
+        pcall(function()
         if not speedEnabled then
             wasMoving = false
             return
@@ -1863,6 +2053,7 @@ local function setupOthersTab()
             hum.WalkSpeed = BASE_SPEED
         end
         wasMoving = isMoving
+        end) -- end pcall
     end)
 
     local RightMaskOthers = Instance.new("Frame")
@@ -1904,8 +2095,8 @@ local function setupOthersTab()
     local staffFrame      = nil
     local staffListFrame  = nil
 
-    local BASE_H    = 58   -- altura base (título + sep + padding)
-    local ROW_H     = 20   -- altura por linha de staff
+    local BASE_H    = 58
+    local ROW_H     = 20
     local GUI_W     = 185
 
     local function isStaffTeam(player)
@@ -1920,7 +2111,7 @@ local function setupOthersTab()
         sg.ResetOnSpawn = false
         sg.IgnoreGuiInset = true
         sg.DisplayOrder = 150
-        sg.Parent = PlayerGui
+        sg.Parent = CoreGui
 
         local sf = Instance.new("Frame")
         sf.Name = "StaffFrame"
@@ -1941,7 +2132,6 @@ local function setupOthersTab()
         sfStroke.Transparency = 0.5
         sfStroke.Parent = sf
 
-        -- Título
         local title = Instance.new("TextLabel")
         title.Name = "Title"
         title.Size = UDim2.new(1, 0, 0, 22)
@@ -1954,7 +2144,6 @@ local function setupOthersTab()
         title.TextXAlignment = Enum.TextXAlignment.Center
         title.Parent = sf
 
-        -- Separador quase invisível
         local sep = Instance.new("Frame")
         sep.Name = "Sep"
         sep.Size = UDim2.new(0, GUI_W - 30, 0, 1)
@@ -1964,7 +2153,6 @@ local function setupOthersTab()
         sep.BorderSizePixel = 0
         sep.Parent = sf
 
-        -- Container da lista
         local lf = Instance.new("Frame")
         lf.Name = "StaffList"
         lf.Size = UDim2.new(1, -16, 1, -40)
@@ -1979,7 +2167,6 @@ local function setupOthersTab()
         ll.HorizontalAlignment = Enum.HorizontalAlignment.Center
         ll.Parent = lf
 
-        -- Drag (arrastável pelo frame inteiro)
         local draggingSF = false
         local dragStartSF, startPosSF
 
@@ -2014,7 +2201,6 @@ local function setupOthersTab()
     local function updateStaffList()
         if not staffGuiEnabled or not staffListFrame then return end
 
-        -- limpa lista anterior
         for _, child in ipairs(staffListFrame:GetChildren()) do
             if not child:IsA("UIListLayout") then child:Destroy() end
         end
@@ -2060,16 +2246,14 @@ local function setupOthersTab()
             end
         end
 
-        -- Ajusta altura com tween
-        local count   = math.max(1, #staffList)
-        local newH    = BASE_H + (count * ROW_H)
+        local count = math.max(1, #staffList)
+        local newH  = BASE_H + (count * ROW_H)
         TweenService:Create(staffFrame,
             TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             { Size = UDim2.new(0, GUI_W, 0, newH) }
         ):Play()
     end
 
-    -- Loop de atualização de distâncias
     task.spawn(function()
         while true do
             if staffGuiEnabled then pcall(updateStaffList) end
@@ -2077,7 +2261,6 @@ local function setupOthersTab()
         end
     end)
 
-    -- Checkbox Staffs (layout order 4, abaixo do anti-ragdoll)
     createCheckbox(OthersContent, "Staffs", 4, function(on)
         staffGuiEnabled = on
         if on then
@@ -2087,9 +2270,7 @@ local function setupOthersTab()
             staffGui.Enabled = true
             pcall(updateStaffList)
         else
-            if staffGui then
-                staffGui.Enabled = false
-            end
+            if staffGui then staffGui.Enabled = false end
         end
     end)
 end
@@ -2112,7 +2293,7 @@ local function getHiddenParent()
     end
     local ok2, cg = pcall(function() return game:GetService("CoreGui") end)
     if ok2 and cg then return cg end
-    return PlayerGui
+    return CoreGui
 end
 
 local function setupChamsFolder()
@@ -2137,7 +2318,7 @@ local function applyHighlight(player, char)
     hl.Name = tostring(math.random(100000, 999999))
     hl.Adornee = char
     hl.FillTransparency = 1
-    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.OutlineColor = localFriends[player.UserId] and FRIEND_COLOR or Color3.fromRGB(255, 255, 255)
     hl.OutlineTransparency = 0
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     hl.Parent = ChamsFolder
@@ -2164,25 +2345,29 @@ local function refreshChams()
 end
 
 Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function(char)
-        if chamsEnabled then applyHighlight(p, char) end
+    pcall(function()
+        p.CharacterAdded:Connect(function(char)
+            pcall(function() if chamsEnabled then applyHighlight(p, char) end end)
+        end)
+        if chamsEnabled and p.Character then
+            pcall(function() applyHighlight(p, p.Character) end)
+        end
     end)
-    if chamsEnabled and p.Character then
-        applyHighlight(p, p.Character)
-    end
 end)
 
 Players.PlayerRemoving:Connect(function(p)
-    if activeChams[p] then
-        activeChams[p]:Destroy()
-        activeChams[p] = nil
-    end
+    pcall(function()
+        if activeChams[p] then
+            activeChams[p]:Destroy()
+            activeChams[p] = nil
+        end
+    end)
 end)
 
 for _, p in ipairs(Players:GetPlayers()) do
     if p ~= LocalPlayer then
         p.CharacterAdded:Connect(function(char)
-            if chamsEnabled then applyHighlight(p, char) end
+            pcall(function() if chamsEnabled then applyHighlight(p, char) end end)
         end)
     end
 end
@@ -2196,7 +2381,8 @@ local BoxGui = Instance.new("ScreenGui")
 BoxGui.Name = "BoxESPGui"
 BoxGui.ResetOnSpawn = false
 BoxGui.IgnoreGuiInset = true
-BoxGui.Parent = PlayerGui
+BoxGui.DisplayOrder = 1
+BoxGui.Parent = CoreGui
 
 local espObjects = {}
 
@@ -2237,7 +2423,7 @@ local function createBoxESP(player)
     nameLabel.Visible = false
     nameLabel.Parent = BoxGui
 
-    espObjects[player] = { Box = box, HealthBg = healthBg, HealthFill = healthFill, Name = nameLabel }
+    espObjects[player] = { Box = box, Stroke = boxStroke, HealthBg = healthBg, HealthFill = healthFill, Name = nameLabel }
 end
 
 local function removeBoxESP(player)
@@ -2248,55 +2434,59 @@ local function removeBoxESP(player)
     end
 end
 
-for _, p in pairs(Players:GetPlayers()) do createBoxESP(p) end
-Players.PlayerAdded:Connect(createBoxESP)
-Players.PlayerRemoving:Connect(removeBoxESP)
+for _, p in pairs(Players:GetPlayers()) do pcall(createBoxESP, p) end
+Players.PlayerAdded:Connect(function(p) pcall(createBoxESP, p) end)
+Players.PlayerRemoving:Connect(function(p) pcall(removeBoxESP, p) end)
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
-    if not boxesEnabled then return end
-    for player, esp in pairs(espObjects) do
-        local char = player.Character
-        if char then
-            local head = char:FindFirstChild("Head")
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            local leftLeg = char:FindFirstChild("Left Leg") or char:FindFirstChild("LeftFoot") or char:FindFirstChild("LeftUpperLeg")
-            if head and hrp and hum and leftLeg and hum.Health > 0 then
-                local headPos, onScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                local legPos = Camera:WorldToViewportPoint(leftLeg.Position - Vector3.new(0, 0.5, 0))
-                if onScreen and headPos.Z > 0 then
-                    local height = math.abs(legPos.Y - headPos.Y) + (PADDING_Y * 2)
-                    local width = (height * 0.6) + (PADDING_X * 2)
-                    local boxX = headPos.X - (width / 2)
-                    local boxY = headPos.Y - PADDING_Y
-                    esp.Box.Position = UDim2.new(0, boxX, 0, boxY)
-                    esp.Box.Size = UDim2.new(0, width, 0, height)
-                    esp.Box.Visible = true
-                    local healthPercent = hum.Health / hum.MaxHealth
-                    esp.HealthBg.Position = UDim2.new(0, boxX - 5, 0, boxY + height)
-                    esp.HealthBg.Size = UDim2.new(0, 3, 0, height)
-                    esp.HealthBg.Visible = true
-                    esp.HealthFill.Size = UDim2.new(1, 0, healthPercent, 0)
-                    if healthPercent > 0.75 then esp.HealthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                    elseif healthPercent > 0.5 then esp.HealthFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-                    elseif healthPercent > 0.25 then esp.HealthFill.BackgroundColor3 = Color3.fromRGB(255, 128, 0)
-                    else esp.HealthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0) end
-                    esp.Name.Position = UDim2.new(0, boxX + (width/2) - 50, 0, boxY - 20)
-                    esp.Name.Size = UDim2.new(0, 100, 0, 15)
-                    esp.Name.Text = player.Name
-                    esp.Name.Visible = true
+        if not boxesEnabled then return end
+        for player, esp in pairs(espObjects) do
+            local char = player.Character
+            if char then
+                local head = char:FindFirstChild("Head")
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                local leftLeg = char:FindFirstChild("Left Leg") or char:FindFirstChild("LeftFoot") or char:FindFirstChild("LeftUpperLeg")
+                if head and hrp and hum and leftLeg and hum.Health > 0 then
+                    local headPos, onScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos = Camera:WorldToViewportPoint(leftLeg.Position - Vector3.new(0, 0.5, 0))
+                    if onScreen and headPos.Z > 0 then
+                        local height = math.abs(legPos.Y - headPos.Y) + (PADDING_Y * 2)
+                        local width = (height * 0.6) + (PADDING_X * 2)
+                        local boxX = headPos.X - (width / 2)
+                        local boxY = headPos.Y - PADDING_Y
+                        local isFriend = localFriends[player.UserId]
+                        local eColor = isFriend and FRIEND_COLOR or BOX_COLOR
+                        esp.Box.Position = UDim2.new(0, boxX, 0, boxY)
+                        esp.Box.Size = UDim2.new(0, width, 0, height)
+                        esp.Box.Visible = true
+                        if esp.Stroke then esp.Stroke.Color = eColor end
+                        local healthPercent = hum.Health / hum.MaxHealth
+                        esp.HealthBg.Position = UDim2.new(0, boxX - 5, 0, boxY + height)
+                        esp.HealthBg.Size = UDim2.new(0, 3, 0, height)
+                        esp.HealthBg.Visible = true
+                        esp.HealthFill.Size = UDim2.new(1, 0, healthPercent, 0)
+                        if healthPercent > 0.75 then esp.HealthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                        elseif healthPercent > 0.5 then esp.HealthFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+                        elseif healthPercent > 0.25 then esp.HealthFill.BackgroundColor3 = Color3.fromRGB(255, 128, 0)
+                        else esp.HealthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0) end
+                        esp.Name.Position = UDim2.new(0, boxX + (width/2) - 50, 0, boxY - 20)
+                        esp.Name.Size = UDim2.new(0, 100, 0, 15)
+                        esp.Name.Text = player.Name
+                        esp.Name.TextColor3 = eColor
+                        esp.Name.Visible = true
+                    else
+                        esp.Box.Visible = false; esp.HealthBg.Visible = false; esp.Name.Visible = false
+                    end
                 else
                     esp.Box.Visible = false; esp.HealthBg.Visible = false; esp.Name.Visible = false
                 end
             else
                 esp.Box.Visible = false; esp.HealthBg.Visible = false; esp.Name.Visible = false
             end
-        else
-            esp.Box.Visible = false; esp.HealthBg.Visible = false; esp.Name.Visible = false
         end
-    end
-    end) -- pcall box ESP
+    end)
 end)
 
 local TRACER_COLOR = Color3.fromRGB(255, 255, 255)
@@ -2307,7 +2497,8 @@ local TracerGui = Instance.new("ScreenGui")
 TracerGui.Name = "TracersGui"
 TracerGui.ResetOnSpawn = false
 TracerGui.IgnoreGuiInset = true
-TracerGui.Parent = PlayerGui
+TracerGui.DisplayOrder = 1
+TracerGui.Parent = CoreGui
 
 local tracers = {}
 
@@ -2329,42 +2520,43 @@ local function removeTracer(player)
     end
 end
 
-for _, p in pairs(Players:GetPlayers()) do createTracer(p) end
-Players.PlayerAdded:Connect(createTracer)
-Players.PlayerRemoving:Connect(removeTracer)
+for _, p in pairs(Players:GetPlayers()) do pcall(createTracer, p) end
+Players.PlayerAdded:Connect(function(p) pcall(createTracer, p) end)
+Players.PlayerRemoving:Connect(function(p) pcall(removeTracer, p) end)
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
-    if not tracersEnabled then return end
-    local viewport = Camera.ViewportSize
-    local origin = Vector2.new(viewport.X / 2, viewport.Y - ORIGIN_OFFSET_Y)
-    for player, frame in pairs(tracers) do
-        local char = player.Character
-        if char then
-            local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if torso and hum and hum.Health > 0 then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(torso.Position)
-                if onScreen and screenPos.Z > 0 then
-                    local targetPos = Vector2.new(screenPos.X, screenPos.Y)
-                    local center = (origin + targetPos) / 2
-                    local distance = (targetPos - origin).Magnitude
-                    local angle = math.deg(math.atan2(targetPos.Y - origin.Y, targetPos.X - origin.X))
-                    frame.Position = UDim2.new(0, center.X, 0, center.Y)
-                    frame.Size = UDim2.new(0, distance, 0, THICKNESS)
-                    frame.Rotation = angle
-                    frame.Visible = true
+        if not tracersEnabled then return end
+        local viewport = Camera.ViewportSize
+        local origin = Vector2.new(viewport.X / 2, viewport.Y - ORIGIN_OFFSET_Y)
+        for player, frame in pairs(tracers) do
+            local char = player.Character
+            if char then
+                local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if torso and hum and hum.Health > 0 then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(torso.Position)
+                    if onScreen and screenPos.Z > 0 then
+                        local targetPos = Vector2.new(screenPos.X, screenPos.Y)
+                        local center = (origin + targetPos) / 2
+                        local distance = (targetPos - origin).Magnitude
+                        local angle = math.deg(math.atan2(targetPos.Y - origin.Y, targetPos.X - origin.X))
+                        frame.Position = UDim2.new(0, center.X, 0, center.Y)
+                        frame.Size = UDim2.new(0, distance, 0, THICKNESS)
+                        frame.Rotation = angle
+                        frame.BackgroundColor3 = localFriends[player.UserId] and FRIEND_COLOR or TRACER_COLOR
+                        frame.Visible = true
+                    else
+                        frame.Visible = false
+                    end
                 else
                     frame.Visible = false
                 end
             else
                 frame.Visible = false
             end
-        else
-            frame.Visible = false
         end
-    end
-    end) -- pcall tracers
+    end)
 end)
 
 local SKELETON_COLOR = Color3.fromRGB(255, 255, 255)
@@ -2375,7 +2567,8 @@ local SkeletonGui = Instance.new("ScreenGui")
 SkeletonGui.Name = "SkeletonESP"
 SkeletonGui.ResetOnSpawn = false
 SkeletonGui.IgnoreGuiInset = true
-SkeletonGui.Parent = PlayerGui
+SkeletonGui.DisplayOrder = 1
+SkeletonGui.Parent = CoreGui
 
 local skeletons = {}
 
@@ -2403,9 +2596,9 @@ local function removeSkeleton(player)
     end
 end
 
-for _, p in pairs(Players:GetPlayers()) do createSkeleton(p) end
-Players.PlayerAdded:Connect(createSkeleton)
-Players.PlayerRemoving:Connect(removeSkeleton)
+for _, p in pairs(Players:GetPlayers()) do pcall(createSkeleton, p) end
+Players.PlayerAdded:Connect(function(p) pcall(createSkeleton, p) end)
+Players.PlayerRemoving:Connect(function(p) pcall(removeSkeleton, p) end)
 
 local function updateLine(line, p1_3D, p2_3D)
     local screen1, onScreen1 = Camera:WorldToViewportPoint(p1_3D)
@@ -2428,43 +2621,45 @@ end
 
 RunService.RenderStepped:Connect(function()
     pcall(function()
-    if not skeletonEnabled then return end
-    for player, skel in pairs(skeletons) do
-        local char = player.Character
-        if char then
-            local head = char:FindFirstChild("Head")
-            local torso = char:FindFirstChild("Torso")
-            local leftArm = char:FindFirstChild("Left Arm")
-            local rightArm = char:FindFirstChild("Right Arm")
-            local leftLeg = char:FindFirstChild("Left Leg")
-            local rightLeg = char:FindFirstChild("Right Leg")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if head and torso and leftArm and rightArm and leftLeg and rightLeg and hum and hum.Health > 0 then
-                local topSpine = head.Position + Vector3.new(0, -0.5, 0)
-                local bottomSpine = torso.Position + Vector3.new(0, -1.2, 0)
-                local lShoulderPos = (torso.CFrame * CFrame.new(-1, 0.5, 0)).Position
-                local rShoulderPos = (torso.CFrame * CFrame.new(1, 0.5, 0)).Position
-                local lHipPos = (torso.CFrame * CFrame.new(-0.5, -1, 0)).Position
-                local rHipPos = (torso.CFrame * CFrame.new(0.5, -1, 0)).Position
-                local lHandPos = (leftArm.CFrame * CFrame.new(0, -1, 0)).Position
-                local rHandPos = (rightArm.CFrame * CFrame.new(0, -1, 0)).Position
-                local lFootPos = (leftLeg.CFrame * CFrame.new(0, -1.0, 0)).Position
-                local rFootPos = (rightLeg.CFrame * CFrame.new(0, -1.0, 0)).Position
-                updateLine(skel.Spine, topSpine, bottomSpine)
-                updateLine(skel.Shoulders, lShoulderPos, rShoulderPos)
-                updateLine(skel.Hips, lHipPos, rHipPos)
-                updateLine(skel.LeftArm, lShoulderPos, lHandPos)
-                updateLine(skel.RightArm, rShoulderPos, rHandPos)
-                updateLine(skel.LeftLeg, lHipPos, lFootPos)
-                updateLine(skel.RightLeg, rHipPos, rFootPos)
+        if not skeletonEnabled then return end
+        for player, skel in pairs(skeletons) do
+            local char = player.Character
+            if char then
+                local head = char:FindFirstChild("Head")
+                local torso = char:FindFirstChild("Torso")
+                local leftArm = char:FindFirstChild("Left Arm")
+                local rightArm = char:FindFirstChild("Right Arm")
+                local leftLeg = char:FindFirstChild("Left Leg")
+                local rightLeg = char:FindFirstChild("Right Leg")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if head and torso and leftArm and rightArm and leftLeg and rightLeg and hum and hum.Health > 0 then
+                    local sColor = localFriends[player.UserId] and FRIEND_COLOR or SKELETON_COLOR
+                    for _, line in pairs(skel) do line.BackgroundColor3 = sColor end
+                    local topSpine = head.Position + Vector3.new(0, -0.5, 0)
+                    local bottomSpine = torso.Position + Vector3.new(0, -1.2, 0)
+                    local lShoulderPos = (torso.CFrame * CFrame.new(-1, 0.5, 0)).Position
+                    local rShoulderPos = (torso.CFrame * CFrame.new(1, 0.5, 0)).Position
+                    local lHipPos = (torso.CFrame * CFrame.new(-0.5, -1, 0)).Position
+                    local rHipPos = (torso.CFrame * CFrame.new(0.5, -1, 0)).Position
+                    local lHandPos = (leftArm.CFrame * CFrame.new(0, -1, 0)).Position
+                    local rHandPos = (rightArm.CFrame * CFrame.new(0, -1, 0)).Position
+                    local lFootPos = (leftLeg.CFrame * CFrame.new(0, -1.0, 0)).Position
+                    local rFootPos = (rightLeg.CFrame * CFrame.new(0, -1.0, 0)).Position
+                    updateLine(skel.Spine, topSpine, bottomSpine)
+                    updateLine(skel.Shoulders, lShoulderPos, rShoulderPos)
+                    updateLine(skel.Hips, lHipPos, rHipPos)
+                    updateLine(skel.LeftArm, lShoulderPos, lHandPos)
+                    updateLine(skel.RightArm, rShoulderPos, rHandPos)
+                    updateLine(skel.LeftLeg, lHipPos, lFootPos)
+                    updateLine(skel.RightLeg, rHipPos, rFootPos)
+                else
+                    for _, line in pairs(skel) do line.Visible = false end
+                end
             else
                 for _, line in pairs(skel) do line.Visible = false end
             end
-        else
-            for _, line in pairs(skel) do line.Visible = false end
         end
-    end
-    end) -- pcall skeleton
+    end)
 end)
 
 -- ==========================================
@@ -2870,6 +3065,7 @@ local function update(input)
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
+-- Check floatingState.locked: se travado, não inicia o drag.
 MainFrame.InputBegan:Connect(function(input)
     if floatingState.locked then return end
     if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -2883,6 +3079,7 @@ MainFrame.InputBegan:Connect(function(input)
     end
 end)
 
+-- Também bloqueia o movimento se travou no meio do arrasto.
 MainFrame.InputChanged:Connect(function(input)
     if floatingState.locked then
         dragging = false
@@ -2901,14 +3098,18 @@ setupOthersTab()
 -- ==========================================
 -- 22. BOTÕES FLUTUANTES (toggle + lock) E CHAT COMMANDS
 -- ==========================================
+-- Ficam numa ScreenGui separada pra continuar visíveis quando MainFrame minimiza.
 local function setupFloatingButtons()
+    -- Tela dos botões flutuantes.
     local floatGui = Instance.new("ScreenGui")
     floatGui.Name = "LuminateFloating"
     floatGui.ResetOnSpawn = false
     floatGui.IgnoreGuiInset = true
     floatGui.DisplayOrder = 200
-    floatGui.Parent = PlayerGui
+    floatGui.Parent = CoreGui
 
+    -- Container vertical (empilha toggle em cima, lock embaixo).
+    -- Posição: canto superior esquerdo, logo abaixo do botão do Roblox.
     local container = Instance.new("Frame")
     container.Name = "ButtonContainer"
     container.Size = UDim2.new(0, 64, 0, 62)
@@ -2921,6 +3122,7 @@ local function setupFloatingButtons()
     listLayout.SortOrder = Enum.SortOrder.LayoutOrder
     listLayout.Parent = container
 
+    -- Helper: cria botão com gradiente, stroke, ripple e texto.
     local function makeFloatButton(text, order, onClick)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, 0, 0, 28)
@@ -2936,6 +3138,7 @@ local function setupFloatingButtons()
         corner.CornerRadius = UDim.new(0, 6)
         corner.Parent = btn
 
+        -- Gradiente diagonal (branco → cinza escuro).
         local gradient = Instance.new("UIGradient")
         gradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Color3.fromRGB(230, 230, 230)),
@@ -2944,12 +3147,14 @@ local function setupFloatingButtons()
         gradient.Rotation = 45
         gradient.Parent = btn
 
+        -- Stroke branco semitransparente.
         local stroke = Instance.new("UIStroke")
         stroke.Color = Color3.fromRGB(255, 255, 255)
         stroke.Thickness = 1
         stroke.Transparency = 0.5
         stroke.Parent = btn
 
+        -- Ripple (mesma animação dos botões da GUI).
         local ripple = Instance.new("Frame")
         ripple.Name = "Ripple"
         ripple.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -2965,6 +3170,7 @@ local function setupFloatingButtons()
         rippleCorner.CornerRadius = UDim.new(0, 6)
         rippleCorner.Parent = ripple
 
+        -- Texto do botão.
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
@@ -2975,6 +3181,7 @@ local function setupFloatingButtons()
         label.ZIndex = 2
         label.Parent = btn
 
+        -- Ripple + callback.
         local currentTween
         btn.MouseButton1Click:Connect(function()
             if currentTween then currentTween:Cancel() end
@@ -2994,10 +3201,12 @@ local function setupFloatingButtons()
         return btn, label
     end
 
+    -- Botão TOGGLE: minimiza/maximiza o MainFrame.
     makeFloatButton("toggle", 1, function()
         MainFrame.Visible = not MainFrame.Visible
     end)
 
+    -- Botão LOCK: trava/destrava o arrasto do MainFrame.
     local lockBtn, lockLabel = makeFloatButton("lock", 2, function()
         floatingState.locked = not floatingState.locked
         if floatingState.locked then
@@ -3008,11 +3217,10 @@ local function setupFloatingButtons()
             notify("GUI destravada")
         end
     end)
+    -- Referência ao label pra poder consultar depois se necessário.
+    container:SetAttribute("LockLabelName", "lock")
 
-    -- ==========================================
-    -- FIX: chat listener com pcall em message.Text
-    -- para evitar "attempt to index nil with 'Text'"
-    -- ==========================================
+    -- Listener de chat pros comandos !esconder / !aparecer.
     local function onChatMessage(text)
         if type(text) ~= "string" then return end
         local lower = string.lower(text)
@@ -3033,30 +3241,28 @@ local function setupFloatingButtons()
         end
     end
 
-    -- API nova: pcall em message e em message.Text separadamente
+    -- Tenta a API nova do TextChatService primeiro.
     pcall(function()
         if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
             TextChatService.MessageReceived:Connect(function(message)
-                if not message then return end
-                if not message.TextSource then return end
-                if message.TextSource.UserId ~= LocalPlayer.UserId then return end
-                local ok, txt = pcall(function() return message.Text end)
-                if ok and txt then onChatMessage(txt) end
+                if message.TextSource and message.TextSource.UserId == LocalPlayer.UserId then
+                    local ok, txt = pcall(function() return message.Text end)
+                    if ok and txt then onChatMessage(txt) end
+                end
             end)
         end
     end)
 
-    -- Fallback API antiga
+    -- Fallback pra API antiga (DefaultChatSystemChatEvents).
     pcall(function()
         local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
         if chatEvents then
             local onMessageDoneFiltering = chatEvents:FindFirstChild("OnMessageDoneFiltering")
             if onMessageDoneFiltering then
                 onMessageDoneFiltering.OnClientEvent:Connect(function(data)
-                    if not data then return end
-                    if data.SpeakerUserId ~= LocalPlayer.UserId then return end
-                    local ok, txt = pcall(function() return data.Message end)
-                    if ok and txt then onChatMessage(txt) end
+                    if data and data.SpeakerUserId == LocalPlayer.UserId then
+                        onChatMessage(data.Message)
+                    end
                 end)
             end
         end
